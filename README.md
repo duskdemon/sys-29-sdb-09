@@ -1,4 +1,4 @@
-# Домашнее задание к занятию "`Название занятия`" - `Дунаев Дмитрий`
+# Домашнее задание к занятию "`Индексы`" - `Дунаев Дмитрий`
 
 
 ### Инструкция по выполнению домашнего задания
@@ -24,94 +24,150 @@
 
 ### Задание 1
 
-`Приведите ответ в свободной форме........`
+Напишите запрос к учебной базе данных, который вернёт процентное отношение общего размера всех индексов к общему размеру всех таблиц.
 
-1. `Заполните здесь этапы выполнения, если требуется ....`
-2. `Заполните здесь этапы выполнения, если требуется ....`
-3. `Заполните здесь этапы выполнения, если требуется ....`
-4. `Заполните здесь этапы выполнения, если требуется ....`
-5. `Заполните здесь этапы выполнения, если требуется ....`
-6. 
+---
 
+### Решение 1
+
+Запрос и вывод ниже:
+
+```SQL
+MySQL [(none)]> SELECT TABLE_SCHEMA AS 'Table schema',
+    -> SUM(`DATA_LENGTH`) AS 'Data volume',
+    -> SUM(`INDEX_LENGTH`) AS 'Indexes volume',
+    -> SUM(`INDEX_LENGTH`)/(SUM(`DATA_LENGTH`)+SUM(`INDEX_LENGTH`))*100 AS 'Percentage ratio'
+    -> FROM information_schema.TABLES
+    -> WHERE `TABLE_SCHEMA` = "sakila";
++--------------+-------------+----------------+------------------+
+| Table schema | Data volume | Indexes volume | Percentage ratio |
++--------------+-------------+----------------+------------------+
+| sakila       |     4374528 |        2392064 |          35.3511 |
++--------------+-------------+----------------+------------------+
+1 row in set (0,005 sec)
 ```
-Поле для вставки кода...
-....
-....
-....
-....
-```
-
-`При необходимости прикрепитe сюда скриншоты
-![Название скриншота 1](ссылка на скриншот 1)`
-
 
 ---
 
 ### Задание 2
 
-`Приведите ответ в свободной форме........`
-
-1. `Заполните здесь этапы выполнения, если требуется ....`
-2. `Заполните здесь этапы выполнения, если требуется ....`
-3. `Заполните здесь этапы выполнения, если требуется ....`
-4. `Заполните здесь этапы выполнения, если требуется ....`
-5. `Заполните здесь этапы выполнения, если требуется ....`
-6. 
-
+Выполните explain analyze следующего запроса:
+```sql
+select distinct concat(c.last_name, ' ', c.first_name), sum(p.amount) over (partition by c.customer_id, f.title)
+from payment p, rental r, customer c, inventory i, film f
+where date(p.payment_date) = '2005-07-30' and p.payment_date = r.rental_date and r.customer_id = c.customer_id and i.inventory_id = r.inventory_id
 ```
-Поле для вставки кода...
-....
-....
-....
-....
-```
-
-`При необходимости прикрепитe сюда скриншоты
-![Название скриншота 2](ссылка на скриншот 2)`
-
+- перечислите узкие места;
+- оптимизируйте запрос: внесите корректировки по использованию операторов, при необходимости добавьте индексы.
 
 ---
 
-### Задание 3
+### Решение 2
 
-`Приведите ответ в свободной форме........`
+1. Сделаем EXPLAIN ANALYZE:
 
-1. `Заполните здесь этапы выполнения, если требуется ....`
-2. `Заполните здесь этапы выполнения, если требуется ....`
-3. `Заполните здесь этапы выполнения, если требуется ....`
-4. `Заполните здесь этапы выполнения, если требуется ....`
-5. `Заполните здесь этапы выполнения, если требуется ....`
-6. 
-
-```
-Поле для вставки кода...
-....
-....
-....
-....
-```
-
-`При необходимости прикрепитe сюда скриншоты
-![Название скриншота](ссылка на скриншот)`
-
-### Задание 4
-
-`Приведите ответ в свободной форме........`
-
-1. `Заполните здесь этапы выполнения, если требуется ....`
-2. `Заполните здесь этапы выполнения, если требуется ....`
-3. `Заполните здесь этапы выполнения, если требуется ....`
-4. `Заполните здесь этапы выполнения, если требуется ....`
-5. `Заполните здесь этапы выполнения, если требуется ....`
-6. 
-
-```
-Поле для вставки кода...
-....
-....
-....
-....
+```SQL
+MySQL [sakila]> EXPLAIN ANALYZE
+    -> select distinct concat(c.last_name, ' ', c.first_name), sum(p.amount) over (partition by c.customer_id, f.title)
+    -> from payment p, rental r, customer c, inventory i, film f
+    -> where date(p.payment_date) = '2005-07-30' and p.payment_date = r.rental_date and r.customer_id = c.customer_id and i.inventory_id = r.inventory_id;
+...
+| -> Table scan on <temporary>  (cost=2.5..2.5 rows=0) (actual time=2794..2794 rows=391 loops=1)
+    -> Temporary table with deduplication  (cost=0..0 rows=0) (actual time=2794..2794 rows=391 loops=1)
+        -> Window aggregate with buffering: sum(payment.amount) OVER (PARTITION BY c.customer_id,f.title )   (actual time=1137..2702 rows=642000 loops=1)
+            -> Sort: c.customer_id, f.title  (actual time=1137..1165 rows=642000 loops=1)
+                -> Stream results  (cost=22.1e+6 rows=16.7e+6) (actual time=0.311..822 rows=642000 loops=1)
+                    -> Nested loop inner join  (cost=22.1e+6 rows=16.7e+6) (actual time=0.306..707 rows=642000 loops=1)
+                        -> Nested loop inner join  (cost=20.5e+6 rows=16.7e+6) (actual time=0.303..617 rows=642000 loops=1)
+                            -> Nested loop inner join  (cost=18.8e+6 rows=16.7e+6) (actual time=0.298..526 rows=642000 loops=1)
+                                -> Inner hash join (no condition)  (cost=1.65e+6 rows=16.5e+6) (actual time=0.285..20.2 rows=634000 loops=1)
+                                    -> Filter: (cast(p.payment_date as date) = '2005-07-30')  (cost=1.72 rows=16500) (actual time=0.026..2.68 rows=634 loops=1)
+                                        -> Table scan on p  (cost=1.72 rows=16500) (actual time=0.0183..2.01 rows=16044 loops=1)
+                                    -> Hash
+                                        -> Covering index scan on f using idx_title  (cost=112 rows=1000) (actual time=0.0481..0.197 rows=1000 loops=1)
+                                -> Covering index lookup on r using rental_date (rental_date=p.payment_date)  (cost=0.938 rows=1.01) (actual time=513e-6..726e-6 rows=1.01 loops=634000)
+                            -> Single-row index lookup on c using PRIMARY (customer_id=r.customer_id)  (cost=250e-6 rows=1) (actual time=58.3e-6..71.1e-6 rows=1 loops=642000)
+                        -> Single-row covering index lookup on i using PRIMARY (inventory_id=r.inventory_id)  (cost=250e-6 rows=1) (actual time=55.5e-6..68.5e-6 rows=1 loops=642000)
+ |
+1 row in set (2,800 sec)
 ```
 
-`При необходимости прикрепитe сюда скриншоты
-![Название скриншота](ссылка на скриншот)`
+Видим, что выполнение занимает внушительные 2,8 секунд.
+2. Выполним сам запрос, и посмотрим результат, которыый он выдает, чтобы оценить его:
+
+```SQL
+...
+391 rows in set (2,549 sec)
+```
+
+3. В ходе анализа запроса и результата, предполагаю, что некоторые таблицы не используется, можно удалить их из запроса. Конструкцию в конце, сочетающую множество условий AND, тоже удаляем, это существенно сократит время выполнения и объем самого запроса. Также делаю JOIN для таблицы 'customer'.
+Запуск после оптимизации дал результат:
+
+```SQL
+...
+MySQL [sakila]> EXPLAIN ANALYZE
+    -> select distinct concat(c.last_name, ' ', c.first_name), sum(p.amount)
+    -> from payment p
+    -> LEFT JOIN customer c ON c.customer_id = p.customer_id
+    -> where date(p.payment_date) = '2005-07-30' 
+    -> GROUP BY c.customer_id;
+...
+| -> Sort with duplicate removal: `concat(c.last_name, ' ', c.first_name)`, `sum(p.amount)`  (actual time=11.8..11.8 rows=391 loops=1)
+    -> Table scan on <temporary>  (actual time=11.6..11.6 rows=391 loops=1)
+        -> Aggregate using temporary table  (actual time=11.6..11.6 rows=391 loops=1)
+            -> Nested loop left join  (cost=7449 rows=16500) (actual time=0.195..10.8 rows=634 loops=1)
+                -> Filter: (cast(p.payment_date as date) = '2005-07-30')  (cost=1674 rows=16500) (actual time=0.162..9.85 rows=634 loops=1)
+                    -> Table scan on p  (cost=1674 rows=16500) (actual time=0.123..7.68 rows=16044 loops=1)
+                -> Single-row index lookup on c using PRIMARY (customer_id=p.customer_id)  (cost=0.25 rows=1) (actual time=0.00121..0.00126 rows=1 loops=634)
+ |
+...
+1 row in set (0,014 sec)
+```
+
+4. Для ускорения поиска добавляю индекс для столбца 'payment_date', в результате получаем:
+
+```SQL
+MySQL [sakila]> CREATE INDEX pdate ON payment(payment_date);
+Query OK, 0 rows affected (0,079 sec)
+Records: 0  Duplicates: 0  Warnings: 0
+
+MySQL [sakila]> EXPLAIN ANALYZE
+    -> select distinct concat(c.last_name, ' ', c.first_name), sum(p.amount)
+    -> from payment p
+    -> LEFT JOIN customer c ON c.customer_id = p.customer_id
+    -> where date(p.payment_date) = '2005-07-30' 
+    -> GROUP BY c.customer_id;
+...| 
+| -> Sort with duplicate removal: `concat(c.last_name, ' ', c.first_name)`, `sum(p.amount)`  (actual time=3.5..3.51 rows=391 loops=1)
+    -> Table scan on <temporary>  (actual time=3.38..3.4 rows=391 loops=1)
+        -> Aggregate using temporary table  (actual time=3.38..3.38 rows=391 loops=1)
+            -> Nested loop left join  (cost=7449 rows=16500) (actual time=0.0422..3.18 rows=634 loops=1)
+                -> Filter: (cast(p.payment_date as date) = '2005-07-30')  (cost=1674 rows=16500) (actual time=0.0336..2.86 rows=634 loops=1)
+                    -> Table scan on p  (cost=1674 rows=16500) (actual time=0.027..2.23 rows=16044 loops=1)
+                -> Single-row index lookup on c using PRIMARY (customer_id=p.customer_id)  (cost=0.25 rows=1) (actual time=403e-6..416e-6 rows=1 loops=634)
+ |
+...
+1 row in set (0,005 sec)
+```
+
+---
+
+## Дополнительные задания (со звёздочкой*)
+Эти задания дополнительные, то есть не обязательные к выполнению, и никак не повлияют на получение вами зачёта по этому домашнему заданию. Вы можете их выполнить, если хотите глубже шире разобраться в материале.
+
+### Задание 3*
+
+Самостоятельно изучите, какие типы индексов используются в PostgreSQL. Перечислите те индексы, которые используются в PostgreSQL, а в MySQL — нет.
+
+*Приведите ответ в свободной форме.*
+
+---
+
+### Решение 3*
+
+В отличие от MySQL в PostgreSQL есть следующие типы индексов:
+
+* Bitmap index,
+* Inverted index,
+* Partial index,
+* Function based index.
